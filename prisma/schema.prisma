@@ -1,0 +1,83 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+  SUPERADMIN
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  rollNo    String     @unique
+  name      String
+  email     String?    @unique
+  password  String     @default("123456")
+  role      Role       @default(STUDENT)
+  responses Response[]
+  results   Result[]
+}
+
+model Exam {
+  id            Int        @id @default(autoincrement())
+  title         String
+  duration      Int        // Duration in minutes
+  totalMarks    Int
+  negativeMarks Float      @default(0)
+  questions     Question[]
+  results       Result[]
+}
+
+model Question {
+  id            Int        @id @default(autoincrement())
+  examId        Int
+  exam          Exam       @relation(fields: [examId], references: [id])
+  section       String
+  text          String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String     // "A", "B", "C", or "D"
+  marks         Int        @default(1)
+  responses     Response[]
+}
+
+model Response {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id])
+  questionId     Int
+  question       Question @relation(fields: [questionId], references: [id])
+  selectedOption String?
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, questionId])
+}
+
+model Result {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id])
+  examId          Int
+  exam            Exam     @relation(fields: [examId], references: [id])
+  score           Float
+  correctCount    Int
+  incorrectCount  Int
+  unansweredCount Int
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, examId])
+}
