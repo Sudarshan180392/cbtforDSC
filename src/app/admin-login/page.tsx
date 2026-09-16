@@ -9,6 +9,7 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const [rollNo, setRollNo] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,8 +20,12 @@ export default function AdminLoginPage() {
   const handleCredentialsLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!fullName.trim()) {
+      setError("Please enter your full name.");
+      return;
+    }
     setLoading(true);
-    const result = await signIn("credentials", { rollNo, password, redirect: false });
+    const result = await signIn("credentials", { rollNo, password, fullName: fullName.trim(), redirect: false });
     setLoading(false);
     if (result?.error) {
       setError("Invalid Admin ID or Password. Only authorized admins can log in here.");
@@ -55,18 +60,23 @@ export default function AdminLoginPage() {
 
         <div className="flex items-center gap-3 mb-4">
           <hr className="flex-1 border-gray-300" />
-          <span className="text-gray-400 text-sm">or Admin ID & Password</span>
+          <span className="text-gray-400 text-sm">or Admin Credentials</span>
           <hr className="flex-1 border-gray-300" />
         </div>
 
         <form onSubmit={handleCredentialsLogin}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">Admin ID</label>
-            <input type="text" className="w-full p-3 border rounded text-black focus:outline-none focus:ring-2 focus:ring-blue-500" value={rollNo} onChange={(e) => setRollNo(e.target.value)} placeholder="Enter your Admin ID" required />
+            <label className="block text-gray-700 text-sm font-bold mb-2">Your Full Name</label>
+            <input type="text" className="w-full p-3 border rounded text-black focus:outline-none focus:ring-2 focus:ring-blue-500" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Ramesh Sharma" required />
+            <p className="text-xs text-gray-400 mt-1">This name will be attached to questions you create.</p>
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2">Admin Login ID</label>
+            <input type="text" className="w-full p-3 border rounded text-black focus:outline-none focus:ring-2 focus:ring-blue-500" value={rollNo} onChange={(e) => setRollNo(e.target.value)} placeholder="Enter Admin ID" required />
           </div>
           <div className="mb-6">
             <label className="block text-gray-700 text-sm font-bold mb-2">Password</label>
-            <input type="password" className="w-full p-3 border rounded text-black focus:outline-none focus:ring-2 focus:ring-blue-500" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required />
+            <input type="password" className="w-full p-3 border rounded text-black focus:outline-none focus:ring-2 focus:ring-blue-500" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" required />
           </div>
           <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded">
             {loading ? "Signing in..." : "Sign In as Admin"}

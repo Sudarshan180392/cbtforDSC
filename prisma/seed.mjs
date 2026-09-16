@@ -15,6 +15,18 @@ async function main() {
     },
   });
 
+  // Create shared Admin account (for all teachers / staff)
+  await prisma.user.upsert({
+    where: { rollNo: "ADMIN" },
+    update: { role: "ADMIN" },
+    create: {
+      rollNo: "ADMIN",
+      name: "Staff Admin",
+      password: "adminpassword123",
+      role: "ADMIN",
+    },
+  });
+
   // Create a demo student
   await prisma.user.upsert({
     where: { rollNo: "SSC20260001" },

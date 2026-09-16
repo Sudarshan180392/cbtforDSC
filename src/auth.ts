@@ -16,16 +16,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         rollNo: { label: "Admin ID", type: "text" },
         password: { label: "Password", type: "password" },
+        fullName: { label: "Full Name", type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.rollNo || !credentials?.password) return null;
+        if (!credentials?.rollNo || !credentials?.password || !credentials?.fullName) return null;
         const user = await prisma.user.findUnique({
           where: { rollNo: credentials.rollNo as string },
         });
         if (!user) return null;
         if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") return null;
         if (user.password !== credentials.password) return null;
-        return { id: String(user.id), name: user.name, email: user.email || "", role: user.role };
+        return { 
+          id: String(user.id), 
+          name: credentials.fullName as string,  // Use the name they entered
+          email: user.email || "", 
+          role: user.role 
+        };
       },
     }),
   ],

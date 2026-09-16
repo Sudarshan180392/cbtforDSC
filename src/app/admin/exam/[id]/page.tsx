@@ -137,10 +137,15 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
                 <div className="text-gray-500 text-xs">
                   A: {q.optionA} &nbsp;|&nbsp; B: {q.optionB} &nbsp;|&nbsp; C: {q.optionC} &nbsp;|&nbsp; D: {q.optionD}
                 </div>
-                <div className="mt-1 flex justify-between">
-                  <span className="text-green-700 font-bold text-xs">✅ Correct: {q.correctOption}</span>
-                  <span className="text-gray-500 text-xs">Marks: {q.marks}</span>
+                <div className="mt-1 flex justify-between items-center text-xs">
+                  <span className="text-green-700 font-bold">✅ Correct: {q.correctOption || "A"}</span>
+                  <span className="text-gray-500">Marks: {q.marks}</span>
                 </div>
+                {q.addedBy && (
+                  <div className="mt-1 text-[11px] text-blue-800 bg-blue-50 px-2 py-0.5 rounded font-medium inline-block">
+                    👤 Added by: {q.addedBy}
+                  </div>
+                )}
               </div>
             ))}
           </div>

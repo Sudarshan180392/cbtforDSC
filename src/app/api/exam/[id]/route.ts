@@ -1,11 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 
 const prisma = new PrismaClient();
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const params = await context.params;
   const examId = parseInt(params.id);
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  const isAdmin = role === "ADMIN" || role === "SUPERADMIN";
   
   const { searchParams } = new URL(request.url);
   const userIdStr = searchParams.get("userId");
@@ -29,6 +33,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             optionC: true,
             optionD: true,
             marks: true,
+            addedBy: true,
+            correctOption: isAdmin,
           },
         },
       },

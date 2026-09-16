@@ -50,6 +50,8 @@ model Question {
   optionD       String
   correctOption String     // "A", "B", "C", or "D"
   marks         Int        @default(1)
+  addedBy       String?    // Name of admin who added this question
+  createdAt     DateTime   @default(now())
   responses     Response[]
 }
 
