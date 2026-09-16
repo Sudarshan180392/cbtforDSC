@@ -18,14 +18,15 @@ enum Role {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  rollNo    String     @unique
-  name      String
-  email     String?    @unique
-  password  String     @default("123456")
-  role      Role       @default(STUDENT)
-  responses Response[]
-  results   Result[]
+  id              Int        @id @default(autoincrement())
+  rollNo          String     @unique
+  name            String
+  email           String?    @unique
+  password        String     @default("123456")
+  role            Role       @default(STUDENT)
+  dashboardAccess Boolean    @default(false)
+  responses       Response[]
+  results         Result[]
 }
 
 model Exam {

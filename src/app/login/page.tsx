@@ -23,8 +23,15 @@ export default function LoginPage() {
       if (res.ok) {
         const user = await res.json();
         localStorage.setItem("user", JSON.stringify(user));
-        // Redirect to exam 1 by default, or an exam selection page later
-        router.push("/exam/1");
+        
+        // Fetch the latest exam and redirect directly to it
+        const examRes = await fetch("/api/student/latest-exam");
+        if (examRes.ok) {
+          const { examId } = await examRes.json();
+          router.push(`/exam/${examId}`);
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         const data = await res.json();
         setError(data.error || "Login failed");

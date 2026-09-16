@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 export default function AdminStudentsPage() {
+  const { data: session } = useSession();
+  const role = (session?.user as any)?.role;
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -140,6 +143,7 @@ export default function AdminStudentsPage() {
                   <th className="p-4">Name</th>
                   <th className="p-4">Roll No</th>
                   <th className="p-4">Exams Given</th>
+                  {role === "SUPERADMIN" && <th className="p-4">Dashboard</th>}
                   <th className="p-4">Actions</th>
                 </tr>
               </thead>
@@ -158,6 +162,27 @@ export default function AdminStudentsPage() {
                         <span className="text-gray-400">Not yet</span>
                       )}
                     </td>
+                    {role === "SUPERADMIN" && (
+                      <td className="p-4">
+                        <button
+                          onClick={async () => {
+                            await fetch(`/api/admin/students/${student.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ dashboardAccess: !student.dashboardAccess }),
+                            });
+                            fetchStudents();
+                          }}
+                          className={`text-xs font-bold px-3 py-1 rounded ${
+                            student.dashboardAccess
+                              ? "bg-green-600 hover:bg-green-700 text-white"
+                              : "bg-gray-300 hover:bg-gray-400 text-gray-700"
+                          }`}
+                        >
+                          {student.dashboardAccess ? "✅ Granted" : "🔒 Locked"}
+                        </button>
+                      </td>
+                    )}
                     <td className="p-4 flex gap-2">
                       <button
                         onClick={() => { setResetStudent(student); setNewPassword(""); }}

@@ -36,9 +36,30 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   try {
     const params = await context.params;
     const id = parseInt(params.id);
-    const { password } = await request.json();
-    const updated = await prisma.user.update({ where: { id }, data: { password } });
-    return NextResponse.json(updated);
+    const body = await request.json();
+
+    // If toggling dashboard access — only SUPERADMIN can do this
+    if ("dashboardAccess" in body) {
+      if (role !== "SUPERADMIN") {
+        return NextResponse.json({ error: "Only Superadmin can toggle dashboard access" }, { status: 403 });
+      }
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { dashboardAccess: body.dashboardAccess },
+      });
+      return NextResponse.json(updated);
+    }
+
+    // Password reset — both ADMIN and SUPERADMIN can do this
+    if ("password" in body) {
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { password: body.password },
+      });
+      return NextResponse.json(updated);
+    }
+
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   } finally {

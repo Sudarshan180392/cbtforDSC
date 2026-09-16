@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function ExamPage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
@@ -182,7 +183,14 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
           <div className="text-green-600 mb-1">Correct: {result.correctCount}</div>
           <div className="text-red-600 mb-1">Incorrect: {result.incorrectCount}</div>
           <div className="text-gray-600 mb-4">Unanswered: {result.unansweredCount}</div>
-          <button onClick={handleLogout} className="bg-blue-600 text-white px-4 py-2 rounded">Logout</button>
+          <div className="flex gap-3 justify-center">
+            <Link href="/dashboard" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium text-sm">
+              ← Back to Dashboard
+            </Link>
+            <button onClick={handleLogout} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded font-medium text-sm">
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -195,7 +203,12 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
   return (
     <div className="flex flex-col h-full bg-gray-100 font-sans">
       <header className="bg-blue-800 text-white p-4 flex justify-between items-center shadow-md">
-        <h1 className="text-xl font-bold">{exam.title}</h1>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="text-xs bg-blue-900 hover:bg-blue-950 px-2.5 py-1.5 rounded border border-blue-700 font-medium">
+            ← Dashboard
+          </Link>
+          <h1 className="text-xl font-bold">{exam.title}</h1>
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-lg">Candidate: {user.name} ({user.rollNo})</span>
           <span className="bg-blue-900 px-4 py-1 rounded border border-blue-700 font-mono text-xl">
