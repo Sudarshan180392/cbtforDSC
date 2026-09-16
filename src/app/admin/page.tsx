@@ -49,6 +49,9 @@ export default function AdminDashboard() {
                 👥 Manage Users
               </Link>
             )}
+            <Link href="/admin/students" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm">
+              🎓 Manage Students
+            </Link>
             <button 
               onClick={() => setShowModal(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"

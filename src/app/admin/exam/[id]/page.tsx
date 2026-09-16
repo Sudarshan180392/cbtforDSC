@@ -119,9 +119,28 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
           <div className="flex flex-col gap-4">
             {exam.questions?.map((q: any, i: number) => (
               <div key={q.id} className="border p-3 rounded bg-gray-50 text-sm">
-                <div className="font-bold text-gray-500 mb-1">Q{i + 1} | {q.section}</div>
-                <div className="mb-2 line-clamp-2">{q.text}</div>
-                <div className="text-gray-600">Marks: {q.marks}</div>
+                <div className="flex justify-between items-start mb-1">
+                  <div className="font-bold text-gray-500">Q{i + 1} | {q.section}</div>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Delete Question ${i + 1}? This cannot be undone.`)) return;
+                      await fetch(`/api/admin/question/${q.id}`, { method: "DELETE" });
+                      fetchExam();
+                    }}
+                    className="text-red-500 hover:text-red-700 text-xs font-bold ml-2 flex-shrink-0"
+                    title="Delete this question"
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+                <div className="mb-2 line-clamp-2 text-gray-800">{q.text}</div>
+                <div className="text-gray-500 text-xs">
+                  A: {q.optionA} &nbsp;|&nbsp; B: {q.optionB} &nbsp;|&nbsp; C: {q.optionC} &nbsp;|&nbsp; D: {q.optionD}
+                </div>
+                <div className="mt-1 flex justify-between">
+                  <span className="text-green-700 font-bold text-xs">✅ Correct: {q.correctOption}</span>
+                  <span className="text-gray-500 text-xs">Marks: {q.marks}</span>
+                </div>
               </div>
             ))}
           </div>
