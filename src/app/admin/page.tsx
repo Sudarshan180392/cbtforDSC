@@ -38,6 +38,13 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteExam = async (examId: number, examTitle: string) => {
+    if (!confirm(`⚠️ Delete exam "${examTitle}" and ALL its questions, responses & results? This cannot be undone!`)) return;
+    const res = await fetch(`/api/admin/exam/${examId}`, { method: "DELETE" });
+    if (res.ok) fetchExams();
+    else alert("Failed to delete exam.");
+  };
+
   return (
     <div className="flex-1 bg-gray-100 p-8 text-black">
       <div className="max-w-4xl mx-auto">
@@ -58,7 +65,7 @@ export default function AdminDashboard() {
             >
               + Create New Exam
             </button>
-            <button onClick={() => signOut({ callbackUrl: "/admin/login" })} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded text-sm">
+            <button onClick={() => signOut({ callbackUrl: "/admin-login" })} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded text-sm">
               Sign Out
             </button>
           </div>
@@ -82,10 +89,18 @@ export default function AdminDashboard() {
                   <td className="p-4 font-semibold">{exam.title}</td>
                   <td className="p-4">{exam._count.questions}</td>
                   <td className="p-4">{exam.duration} mins</td>
-                  <td className="p-4">
-                    <Link href={`/admin/exam/${exam.id}`} className="text-blue-600 hover:underline">
+                  <td className="p-4 flex gap-2">
+                    <Link href={`/admin/exam/${exam.id}`} className="text-blue-600 hover:underline text-sm">
                       Manage Questions
                     </Link>
+                    {role === "SUPERADMIN" && (
+                      <button
+                        onClick={() => handleDeleteExam(exam.id, exam.title)}
+                        className="text-red-500 hover:text-red-700 text-sm font-bold"
+                      >
+                        🗑️ Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
