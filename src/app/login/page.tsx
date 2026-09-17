@@ -75,7 +75,7 @@ export default function LoginPage() {
           </button>
         </form>
         <div className="mt-4 text-sm text-gray-600 text-center">
-          Test Account: <br /> Roll No: <b>SSC20260001</b> <br /> Password: <b>password123</b>
+          Test Account: <br /> Roll No: <b>DSC003</b> <br /> Password: <b>12345</b>
         </div>
       </div>
     </div>
