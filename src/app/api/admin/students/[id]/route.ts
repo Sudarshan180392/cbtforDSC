@@ -59,6 +59,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json(updated);
     }
 
+    // Batch assignment — both ADMIN and SUPERADMIN can do this
+    if ("batchId" in body) {
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { batchId: body.batchId ? parseInt(body.batchId) : null },
+        include: {
+          batch: { select: { id: true, name: true } },
+        },
+      });
+      return NextResponse.json(updated);
+    }
+
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });

@@ -56,7 +56,10 @@ export default function AdminDashboard() {
                 👥 Manage Users
               </Link>
             )}
-            <Link href="/admin/students" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm">
+            <Link href="/admin/batches" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm shadow transition-colors">
+              🏷️ Batches & Assignments
+            </Link>
+            <Link href="/admin/students" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm shadow transition-colors">
               🎓 Manage Students
             </Link>
             <button 

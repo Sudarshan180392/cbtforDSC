@@ -20,7 +20,15 @@ export async function GET() {
   try {
     const students = await prisma.user.findMany({
       where: { role: "STUDENT" },
-      select: { id: true, rollNo: true, name: true, dashboardAccess: true, results: { select: { score: true, examId: true } } },
+      select: {
+        id: true,
+        rollNo: true,
+        name: true,
+        dashboardAccess: true,
+        batchId: true,
+        batch: { select: { id: true, name: true } },
+        results: { select: { score: true, examId: true } },
+      },
       orderBy: { id: "desc" },
     });
     return NextResponse.json(students);
@@ -36,7 +44,7 @@ export async function POST(request: Request) {
   if (!role) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
-    const { name, rollNo, password } = await request.json();
+    const { name, rollNo, password, batchId } = await request.json();
     if (!name || !rollNo || !password) {
       return NextResponse.json({ error: "Name, Roll No and Password are required" }, { status: 400 });
     }
@@ -45,7 +53,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Roll No already exists" }, { status: 409 });
     }
     const student = await prisma.user.create({
-      data: { name, rollNo, password, role: "STUDENT" },
+      data: {
+        name,
+        rollNo,
+        password,
+        role: "STUDENT",
+        batchId: batchId ? parseInt(batchId) : null,
+      },
+      include: {
+        batch: { select: { id: true, name: true } },
+      },
     });
     return NextResponse.json(student);
   } catch (e) {

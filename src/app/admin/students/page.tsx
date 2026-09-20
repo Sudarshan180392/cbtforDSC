@@ -8,6 +8,7 @@ export default function AdminStudentsPage() {
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
   const [students, setStudents] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -15,6 +16,7 @@ export default function AdminStudentsPage() {
   const [name, setName] = useState("");
   const [rollNo, setRollNo] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedBatchId, setSelectedBatchId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [adding, setAdding] = useState(false);
@@ -23,15 +25,29 @@ export default function AdminStudentsPage() {
   const [resetStudent, setResetStudent] = useState<any>(null);
   const [newPassword, setNewPassword] = useState("");
 
-  const fetchStudents = async () => {
+  const fetchStudentsAndBatches = async () => {
     setLoading(true);
+    try {
+      const [studentsRes, batchesRes] = await Promise.all([
+        fetch("/api/admin/students"),
+        fetch("/api/admin/batches"),
+      ]);
+      if (studentsRes.ok) setStudents(await studentsRes.json());
+      if (batchesRes.ok) setBatches(await batchesRes.json());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudents = async () => {
     const res = await fetch("/api/admin/students");
     if (res.ok) setStudents(await res.json());
-    setLoading(false);
   };
 
   useEffect(() => {
-    fetchStudents();
+    fetchStudentsAndBatches();
   }, []);
 
   const handleAddStudent = async (e: React.FormEvent) => {
@@ -43,7 +59,12 @@ export default function AdminStudentsPage() {
     const res = await fetch("/api/admin/students", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, rollNo, password }),
+      body: JSON.stringify({
+        name,
+        rollNo,
+        password,
+        batchId: selectedBatchId || null,
+      }),
     });
 
     setAdding(false);
@@ -52,6 +73,7 @@ export default function AdminStudentsPage() {
       setName("");
       setRollNo("");
       setPassword("");
+      setSelectedBatchId("");
       fetchStudents();
     } else {
       const data = await res.json();
@@ -77,6 +99,24 @@ export default function AdminStudentsPage() {
     alert("Password reset successfully!");
   };
 
+  const handleStudentBatchChange = async (studentId: number, batchId: string) => {
+    try {
+      const res = await fetch(`/api/admin/students/${studentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batchId: batchId || null }),
+      });
+      if (res.ok) {
+        fetchStudents();
+      } else {
+        alert("Failed to update student batch");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error updating student batch");
+    }
+  };
+
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -85,7 +125,7 @@ export default function AdminStudentsPage() {
 
   return (
     <div className="flex-1 bg-gray-100 p-6 text-black">
-      <div className="max-w-6xl mx-auto flex gap-6">
+      <div className="max-w-7xl mx-auto flex gap-6">
 
         {/* Left: Add Student Form */}
         <div className="w-80 flex-shrink-0">
@@ -105,10 +145,25 @@ export default function AdminStudentsPage() {
                 <label className="block text-sm font-bold mb-1">Roll Number (Login ID)</label>
                 <input required type="text" className="w-full border p-2 rounded text-sm" value={rollNo} onChange={(e) => setRollNo(e.target.value)} placeholder="e.g. SSC20260001" />
               </div>
-              <div className="mb-4">
+              <div className="mb-3">
                 <label className="block text-sm font-bold mb-1">Password</label>
                 <input required type="text" className="w-full border p-2 rounded text-sm" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="e.g. DOB like 01011998" />
                 <p className="text-xs text-gray-400 mt-1">Tip: Use date of birth as password</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-sm font-bold mb-1">Assign Batch</label>
+                <select
+                  className="w-full border p-2 rounded text-sm bg-white"
+                  value={selectedBatchId}
+                  onChange={(e) => setSelectedBatchId(e.target.value)}
+                >
+                  <option value="">-- Select Batch (Optional) --</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button type="submit" disabled={adding} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded">
                 {adding ? "Adding..." : "+ Add Student"}
@@ -116,7 +171,14 @@ export default function AdminStudentsPage() {
             </form>
 
             <hr className="my-4" />
-            <Link href="/admin" className="text-blue-600 hover:underline text-sm">← Back to Dashboard</Link>
+            <div className="flex flex-col gap-2">
+              <Link href="/admin/batches" className="text-indigo-600 hover:underline text-sm font-semibold">
+                🏷️ Manage Batches & Tests →
+              </Link>
+              <Link href="/admin" className="text-blue-600 hover:underline text-sm">
+                ← Back to Dashboard
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -138,10 +200,11 @@ export default function AdminStudentsPage() {
           <div className="bg-white rounded shadow overflow-hidden">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b text-gray-600">
+                <tr className="bg-gray-50 border-b text-gray-600 font-semibold">
                   <th className="p-4">#</th>
                   <th className="p-4">Name</th>
                   <th className="p-4">Roll No</th>
+                  <th className="p-4">Batch</th>
                   <th className="p-4">Exams Given</th>
                   {role === "SUPERADMIN" && <th className="p-4">Dashboard</th>}
                   <th className="p-4">Actions</th>
@@ -153,6 +216,20 @@ export default function AdminStudentsPage() {
                     <td className="p-4 text-gray-400">{i + 1}</td>
                     <td className="p-4 font-semibold">{student.name}</td>
                     <td className="p-4 font-mono bg-gray-50">{student.rollNo}</td>
+                    <td className="p-4">
+                      <select
+                        value={student.batchId || ""}
+                        onChange={(e) => handleStudentBatchChange(student.id, e.target.value)}
+                        className="p-1 border rounded text-xs bg-white focus:ring-1 focus:ring-blue-500 font-medium text-gray-800 max-w-[150px]"
+                      >
+                        <option value="">-- No Batch --</option>
+                        {batches.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="p-4">
                       {student.results.length > 0 ? (
                         <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">

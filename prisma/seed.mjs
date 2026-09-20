@@ -65,6 +65,22 @@ async function main() {
     });
   }
 
+  // Create default Batch
+  const defaultBatch = await prisma.batch.upsert({
+    where: { name: "General Batch" },
+    update: { activeExamId: exam.id },
+    create: {
+      name: "General Batch",
+      activeExamId: exam.id,
+    },
+  });
+
+  // Link demo student to default batch
+  await prisma.user.update({
+    where: { rollNo: "SSC20260001" },
+    data: { batchId: defaultBatch.id },
+  });
+
   console.log("Database seeded successfully!");
 }
 

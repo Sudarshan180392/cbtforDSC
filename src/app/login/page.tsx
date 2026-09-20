@@ -24,8 +24,8 @@ export default function LoginPage() {
         const user = await res.json();
         localStorage.setItem("user", JSON.stringify(user));
         
-        // Fetch the latest exam and redirect directly to it
-        const examRes = await fetch("/api/student/latest-exam");
+        // Fetch the assigned exam for student's batch (or fallback to latest)
+        const examRes = await fetch(`/api/student/latest-exam?userId=${user.id}`);
         if (examRes.ok) {
           const { examId } = await examRes.json();
           router.push(`/exam/${examId}`);
