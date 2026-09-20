@@ -80,35 +80,61 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
     }));
   };
 
-  const goToQuestion = (index: number) => {
+  const goToQuestion = (targetIndex: number) => {
+    if (targetIndex < 0 || targetIndex >= exam.questions.length) return;
+
     const currentQId = exam.questions[currentQuestionIndex].id;
-    const currentStatus = responses[currentQId].status;
-    const isAnswered = responses[currentQId].selectedOption !== null;
+    const currentResp = responses[currentQId];
+    const isAnswered = currentResp?.selectedOption !== null && currentResp?.selectedOption !== undefined;
 
-    if (currentStatus === "NOT_VISITED" || currentStatus === "NOT_ANSWERED") {
-       setResponses((prev: any) => ({
-          ...prev,
-          [currentQId]: { ...prev[currentQId], status: isAnswered ? "ANSWERED" : "NOT_ANSWERED" }
-       }));
-    }
+    setResponses((prev: any) => {
+      const updated = { ...prev };
+      const curStatus = updated[currentQId]?.status;
 
-    const newQId = exam.questions[index].id;
-    if (responses[newQId].status === "NOT_VISITED") {
-        setResponses((prev: any) => ({
-            ...prev,
-            [newQId]: { ...prev[newQId], status: "NOT_ANSWERED" }
-        }));
+      if (isAnswered) {
+        if (curStatus === "MARKED_FOR_REVIEW" || curStatus === "ANSWERED_AND_MARKED_FOR_REVIEW") {
+          updated[currentQId] = { ...updated[currentQId], status: "ANSWERED_AND_MARKED_FOR_REVIEW" };
+        } else {
+          updated[currentQId] = { ...updated[currentQId], status: "ANSWERED" };
+        }
+      } else {
+        if (curStatus === "MARKED_FOR_REVIEW" || curStatus === "ANSWERED_AND_MARKED_FOR_REVIEW") {
+          updated[currentQId] = { ...updated[currentQId], status: "MARKED_FOR_REVIEW" };
+        } else if (curStatus === "NOT_VISITED") {
+          updated[currentQId] = { ...updated[currentQId], status: "NOT_ANSWERED" };
+        }
+      }
+
+      const targetQId = exam.questions[targetIndex].id;
+      if (updated[targetQId]?.status === "NOT_VISITED") {
+        updated[targetQId] = { ...updated[targetQId], status: "NOT_ANSWERED" };
+      }
+      return updated;
+    });
+
+    setCurrentQuestionIndex(targetIndex);
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      goToQuestion(currentQuestionIndex - 1);
     }
-    setCurrentQuestionIndex(index);
+  };
+
+  const handleSectionClick = (sectionName: string) => {
+    const firstQIndex = exam.questions.findIndex((q: any) => q.section === sectionName);
+    if (firstQIndex !== -1) {
+      goToQuestion(firstQIndex);
+    }
   };
 
   const handleSaveAndNext = () => {
     const qId = exam.questions[currentQuestionIndex].id;
-    const isAnswered = responses[qId].selectedOption !== null;
-    
+    const isAnswered = responses[qId]?.selectedOption !== null && responses[qId]?.selectedOption !== undefined;
+
     setResponses((prev: any) => ({
       ...prev,
-      [qId]: { ...prev[qId], status: isAnswered ? "ANSWERED" : "NOT_ANSWERED" }
+      [qId]: { ...prev[qId], status: isAnswered ? "ANSWERED" : "NOT_ANSWERED" },
     }));
 
     if (currentQuestionIndex < exam.questions.length - 1) {
@@ -120,17 +146,20 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
     const qId = exam.questions[currentQuestionIndex].id;
     setResponses((prev: any) => ({
       ...prev,
-      [qId]: { ...prev[qId], selectedOption: null, status: "NOT_ANSWERED" }
+      [qId]: { ...prev[qId], selectedOption: null, status: "NOT_ANSWERED" },
     }));
   };
 
   const handleMarkForReview = () => {
     const qId = exam.questions[currentQuestionIndex].id;
-    const isAnswered = responses[qId].selectedOption !== null;
-    
+    const isAnswered = responses[qId]?.selectedOption !== null && responses[qId]?.selectedOption !== undefined;
+
     setResponses((prev: any) => ({
       ...prev,
-      [qId]: { ...prev[qId], status: isAnswered ? "ANSWERED_AND_MARKED_FOR_REVIEW" : "MARKED_FOR_REVIEW" }
+      [qId]: {
+        ...prev[qId],
+        status: isAnswered ? "ANSWERED_AND_MARKED_FOR_REVIEW" : "MARKED_FOR_REVIEW",
+      },
     }));
 
     if (currentQuestionIndex < exam.questions.length - 1) {
@@ -221,12 +250,38 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
       <div className="flex flex-1 overflow-hidden">
         {/* Left Side */}
         <div className="flex-1 flex flex-col border-r border-gray-300 bg-white">
-          <div className="flex border-b bg-gray-50 overflow-x-auto">
-             {sections.map((sec: any) => (
-                <div key={sec} className={`p-3 font-semibold text-sm cursor-pointer border-r ${currentQ.section === sec ? "bg-blue-100 text-blue-800 border-b-2 border-blue-600" : "text-gray-600"}`}>
-                  {sec}
-                </div>
-             ))}
+          {/* Section Navigation Tabs */}
+          <div className="flex border-b bg-gray-100 overflow-x-auto shadow-inner">
+             <span className="p-3 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center bg-gray-200 flex-shrink-0 select-none">
+               SECTIONS:
+             </span>
+             {sections.map((sec: any) => {
+                const isActive = currentQ.section === sec;
+                const secQuestions = exam.questions.filter((q: any) => q.section === sec);
+                const answeredCount = secQuestions.filter((q: any) => {
+                  const s = responses[q.id]?.status;
+                  return s === "ANSWERED" || s === "ANSWERED_AND_MARKED_FOR_REVIEW";
+                }).length;
+                return (
+                  <button
+                    type="button"
+                    key={sec}
+                    onClick={() => handleSectionClick(sec)}
+                    className={`px-4 py-3 font-semibold text-sm cursor-pointer border-r flex items-center gap-2 flex-shrink-0 transition-all ${
+                      isActive
+                        ? "bg-white text-blue-800 border-b-2 border-blue-600 font-bold shadow-sm"
+                        : "text-gray-600 hover:bg-gray-200 hover:text-gray-900"
+                    }`}
+                  >
+                    <span>{sec}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      isActive ? "bg-blue-100 text-blue-800 font-bold" : "bg-gray-200 text-gray-700"
+                    }`}>
+                      {answeredCount}/{secQuestions.length}
+                    </span>
+                  </button>
+                );
+             })}
           </div>
 
           <div className="flex-1 overflow-y-auto p-8">
@@ -238,7 +293,7 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
             
             <div className="flex flex-col gap-4">
               {["A", "B", "C", "D"].map((opt) => (
-                <label key={opt} className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer text-black">
+                <label key={opt} className="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer text-black transition-colors">
                   <input
                     type="radio"
                     name="option"
@@ -253,42 +308,94 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
           </div>
 
           {/* Action Buttons */}
-          <div className="bg-gray-50 p-4 border-t flex justify-between items-center">
-            <div className="flex gap-3">
-              <button onClick={handleMarkForReview} className="px-4 py-2 border border-purple-600 text-purple-700 font-semibold rounded hover:bg-purple-50">
-                Mark for Review & Next
+          <div className="bg-gray-50 p-4 border-t flex flex-wrap gap-2 justify-between items-center">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handlePrevious}
+                disabled={currentQuestionIndex === 0}
+                className={`px-4 py-2 border font-semibold rounded text-sm transition-colors ${
+                  currentQuestionIndex === 0
+                    ? "border-gray-200 text-gray-300 cursor-not-allowed bg-gray-100"
+                    : "border-gray-400 text-gray-700 hover:bg-gray-200 bg-white"
+                }`}
+              >
+                ← Previous
               </button>
-              <button onClick={handleClearResponse} className="px-4 py-2 border border-gray-400 text-gray-700 font-semibold rounded hover:bg-gray-200">
+              <button
+                type="button"
+                onClick={handleClearResponse}
+                className="px-4 py-2 border border-gray-400 text-gray-700 font-semibold rounded text-sm hover:bg-gray-200 bg-white transition-colors"
+              >
                 Clear Response
               </button>
+              <button
+                type="button"
+                onClick={handleMarkForReview}
+                className="px-4 py-2 border border-purple-600 text-purple-700 font-semibold rounded text-sm hover:bg-purple-50 bg-white transition-colors"
+              >
+                Mark for Review & Next
+              </button>
             </div>
-            <button onClick={handleSaveAndNext} className="px-6 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700 shadow-sm">
-              Save & Next
+            <button
+              type="button"
+              onClick={handleSaveAndNext}
+              className="px-6 py-2 bg-blue-600 text-white font-semibold rounded text-sm hover:bg-blue-700 shadow-sm transition-colors"
+            >
+              {currentQuestionIndex === exam.questions.length - 1 ? "Save Response" : "Save & Next →"}
             </button>
           </div>
         </div>
 
         {/* Right Side */}
         <div className="w-80 flex flex-col bg-white">
-           <div className="p-4 flex flex-col gap-2 text-sm border-b font-medium text-gray-700">
-             <div className="flex items-center gap-2"><div className="w-6 h-6 rounded bg-green-500"></div> Answered</div>
-             <div className="flex items-center gap-2"><div className="w-6 h-6 rounded bg-red-500"></div> Not Answered</div>
-             <div className="flex items-center gap-2"><div className="w-6 h-6 rounded bg-gray-300"></div> Not Visited</div>
-             <div className="flex items-center gap-2"><div className="w-6 h-6 rounded bg-purple-600"></div> Marked for Review</div>
-             <div className="flex items-center gap-2"><div className="w-6 h-6 rounded bg-purple-600 border-2 border-green-400"></div> Answered & Marked for Review</div>
+           <div className="p-3 flex flex-col gap-1.5 text-xs border-b font-medium text-gray-700">
+             <div className="flex items-center gap-2"><div className="w-5 h-5 rounded bg-green-500 flex-shrink-0"></div> Answered</div>
+             <div className="flex items-center gap-2"><div className="w-5 h-5 rounded bg-red-500 flex-shrink-0"></div> Not Answered</div>
+             <div className="flex items-center gap-2"><div className="w-5 h-5 rounded bg-gray-300 flex-shrink-0"></div> Not Visited</div>
+             <div className="flex items-center gap-2"><div className="w-5 h-5 rounded bg-purple-600 flex-shrink-0"></div> Marked for Review</div>
+             <div className="flex items-center gap-2"><div className="w-5 h-5 rounded bg-purple-600 border-2 border-green-400 flex-shrink-0"></div> Answered & Marked for Review</div>
            </div>
            
            <div className="flex-1 overflow-y-auto p-4 bg-blue-50">
-             <div className="font-bold mb-4 text-blue-900 border-b border-blue-200 pb-2">{currentQ.section}</div>
-             <div className="grid grid-cols-5 gap-3">
+             <div className="mb-3">
+               <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide block mb-1">
+                 Filter Section:
+               </label>
+               <select
+                 value={currentQ.section}
+                 onChange={(e) => handleSectionClick(e.target.value)}
+                 className="w-full p-2 border rounded font-bold text-xs text-blue-900 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+               >
+                 {sections.map((sec: any) => (
+                   <option key={sec} value={sec}>
+                     {sec}
+                   </option>
+                 ))}
+               </select>
+             </div>
+
+             <div className="text-xs font-bold text-blue-900 mb-2 flex justify-between items-center border-b border-blue-200 pb-1">
+               <span>{currentQ.section}</span>
+               <span className="text-[11px] text-gray-500 font-normal">
+                 {exam.questions.filter((q: any) => q.section === currentQ.section).length} Questions
+               </span>
+             </div>
+
+             <div className="grid grid-cols-5 gap-2.5">
                {exam.questions.map((q: any, i: number) => {
                  if (q.section !== currentQ.section) return null;
                  const status = responses[q.id]?.status || "NOT_VISITED";
+                 const isCurrent = i === currentQuestionIndex;
                  return (
                    <button
+                     type="button"
                      key={q.id}
                      onClick={() => goToQuestion(i)}
-                     className={`w-10 h-10 rounded-md flex items-center justify-center text-sm font-bold shadow-sm transition-transform hover:scale-105 ${getStatusColor(status)} ${i === currentQuestionIndex ? "ring-2 ring-offset-1 ring-blue-500" : ""}`}
+                     className={`w-10 h-10 rounded-md flex items-center justify-center text-sm font-bold shadow-sm transition-all hover:scale-105 ${getStatusColor(status)} ${
+                       isCurrent ? "ring-2 ring-offset-2 ring-blue-600 scale-105 z-10" : ""
+                     }`}
+                     title={`Question ${i + 1} (${status.replace(/_/g, " ")})`}
                    >
                      {i + 1}
                    </button>
