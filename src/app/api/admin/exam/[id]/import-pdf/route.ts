@@ -22,6 +22,7 @@ export async function POST(
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
+    const pastedText = (formData.get("pastedText") as string)?.trim();
     const defaultSection =
       (formData.get("defaultSection") as string)?.trim() || "General Intelligence";
     const defaultMarks =
@@ -29,16 +30,40 @@ export async function POST(
     const apiKeyOverride = (formData.get("apiKey") as string)?.trim();
     const apiKey = apiKeyOverride || process.env.GEMINI_API_KEY;
 
+    let questions: any[] = [];
+    let engineUsed = "none";
+    let warning: string | undefined;
+
+    // Case 1: Pasted Text Provided Directly
+    if (pastedText && pastedText.length > 0) {
+      questions = parseQuestionsFromText(pastedText, defaultSection, defaultMarks);
+      engineUsed = "text-parser";
+
+      if (questions.length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Could not parse questions from the pasted text. Ensure questions are numbered (e.g., 1., 2.) and have options (A, B, C, D).",
+          },
+          { status: 422 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        engine: engineUsed,
+        count: questions.length,
+        questions,
+      });
+    }
+
+    // Case 2: PDF File Uploaded
     if (!file) {
-      return NextResponse.json({ error: "No PDF file provided" }, { status: 400 });
+      return NextResponse.json({ error: "Please provide either a PDF file or pasted text." }, { status: 400 });
     }
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-
-    let questions: any[] = [];
-    let engineUsed = "none";
-    let warning: string | undefined;
 
     // Strategy 1: Gemini AI (Multimodal Native PDF Extraction)
     if (apiKey) {
@@ -54,21 +79,34 @@ export async function POST(
 
     // Strategy 2: Local PDF text parser fallback
     if (questions.length === 0) {
+      let rawPdfText = "";
       try {
-        questions = await extractWithLocalParser(buffer, defaultSection, defaultMarks);
-        engineUsed = engineUsed === "none" ? "local" : engineUsed;
+        const pdfParsePkg = require("pdf-parse");
+        if (typeof pdfParsePkg === "function") {
+          const data = await pdfParsePkg(buffer);
+          rawPdfText = data.text || "";
+        } else if (pdfParsePkg?.PDFParse) {
+          const parser = new pdfParsePkg.PDFParse({ data: buffer });
+          const res = await parser.getText();
+          rawPdfText = res?.text || "";
+        }
       } catch (localError: any) {
         console.error("Local PDF parsing error:", localError);
-        if (!apiKey) {
-          return NextResponse.json(
-            {
-              error:
-                "Could not extract text from this PDF. Please check if the PDF is scanned or password protected.",
-            },
-            { status: 422 }
-          );
-        }
       }
+
+      if (!rawPdfText.trim()) {
+        return NextResponse.json(
+          {
+            error:
+              "No readable text could be extracted from this PDF. It may be a scanned image or photo PDF. Please use the 'Paste Text' tab, or provide a free Gemini API key to enable AI OCR.",
+            isScanned: true,
+          },
+          { status: 422 }
+        );
+      }
+
+      questions = parseQuestionsFromText(rawPdfText, defaultSection, defaultMarks);
+      engineUsed = engineUsed === "none" ? "local" : engineUsed;
     }
 
     if (questions.length === 0) {
@@ -96,6 +134,77 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+// -------------------------------------------------------------
+// Universal Text & Block Parser for Questions and Answer Keys
+// -------------------------------------------------------------
+function parseQuestionsFromText(
+  rawText: string,
+  defaultSection: string,
+  defaultMarks: number
+): any[] {
+  if (!rawText || !rawText.trim()) return [];
+
+  // 1. Extract Answer Key table/list (usually at the end or bottom)
+  const answerKeyMap: { [key: number]: string } = {};
+  const answerKeyRegex = /(?:answer\s*keys?|answers?|solutions?|key)\s*[:\n\r]([\s\S]*)$/i;
+  const answerKeyMatch = rawText.match(answerKeyRegex);
+  if (answerKeyMatch && answerKeyMatch[1]) {
+    const keyBlock = answerKeyMatch[1];
+    const itemRegex = /(?:Q(?:uestion)?\.?\s*)?(\d+)[\.\s:\-\)]+([A-D])\b/gi;
+    let match;
+    while ((match = itemRegex.exec(keyBlock)) !== null) {
+      answerKeyMap[parseInt(match[1])] = match[2].toUpperCase();
+    }
+  }
+
+  // Text prior to the answer key block
+  let questionBlockText = rawText;
+  if (answerKeyMatch) {
+    questionBlockText = rawText.substring(0, answerKeyMatch.index);
+  }
+
+  const questions: any[] = [];
+
+  // Match each question block starting with "1." or "Q1." or "1)" or "1 -"
+  const qRegex = /(?:^|\n)\s*(?:Q(?:uestion)?\.?\s*)?(\d+)[\.\)\:-]\s+([\s\S]+?)(?=(?:\n\s*(?:Q(?:uestion)?\.?\s*)?\d+[\.\)\:-]\s+)|$)/gi;
+  let qMatch;
+
+  while ((qMatch = qRegex.exec(questionBlockText)) !== null) {
+    const qNum = parseInt(qMatch[1]);
+    const block = qMatch[2].trim();
+
+    // Regex to match options: A) or (A) or A. or A:
+    const optRegex = /(?:^|\n|\s+)(?:\(|\[)?([A-D])(?:\)|\.|\:|\]|-)\s*([^\n\r]+?)(?=(?:\n|\s+)(?:\(|\[)?[A-D](?:\)|\.|\:|\]|-)|$)/gi;
+    const opts: { [key: string]: string } = {};
+    let optMatch;
+    let firstOptIndex = -1;
+
+    while ((optMatch = optRegex.exec(block)) !== null) {
+      if (firstOptIndex === -1) {
+        firstOptIndex = optMatch.index;
+      }
+      opts[optMatch[1].toUpperCase()] = optMatch[2].trim();
+    }
+
+    const qText = firstOptIndex !== -1 ? block.substring(0, firstOptIndex).trim() : block;
+
+    if (qText && opts["A"] && opts["B"]) {
+      questions.push({
+        section: defaultSection,
+        text: qText.replace(/\s+/g, " "),
+        optionA: opts["A"] || "",
+        optionB: opts["B"] || "",
+        optionC: opts["C"] || "",
+        optionD: opts["D"] || "",
+        correctOption: answerKeyMap[qNum] || "A",
+        marks: defaultMarks,
+      });
+    }
+  }
+
+  return questions;
 }
 
 // -------------------------------------------------------------
@@ -209,149 +318,4 @@ Example schema:
   }
 
   throw lastError || new Error("Failed to extract questions with Gemini");
-}
-
-// -------------------------------------------------------------
-// Local Robust Extraction Fallback (pdf-parse v1 & v2 compatible)
-// -------------------------------------------------------------
-async function extractWithLocalParser(
-  buffer: Buffer,
-  defaultSection: string,
-  defaultMarks: number
-): Promise<any[]> {
-  let rawText = "";
-
-  // pdf-parse v2+ exports { PDFParse: class }, while v1 was a direct function
-  try {
-    const pdfParsePkg = require("pdf-parse");
-    if (typeof pdfParsePkg === "function") {
-      const data = await pdfParsePkg(buffer);
-      rawText = data.text || "";
-    } else if (pdfParsePkg?.PDFParse) {
-      const parser = new pdfParsePkg.PDFParse({ data: buffer });
-      const res = await parser.getText();
-      rawText = res?.text || "";
-    } else if (pdfParsePkg?.default && typeof pdfParsePkg.default === "function") {
-      const data = await pdfParsePkg.default(buffer);
-      rawText = data.text || "";
-    }
-  } catch (err) {
-    console.error("Failed to parse PDF with pdf-parse library:", err);
-    throw err;
-  }
-
-  if (!rawText.trim()) return [];
-
-  const questions: any[] = [];
-
-  // Look for Answer Key table/list at the bottom or end of document
-  const answerKeyMap: { [key: number]: string } = {};
-  const answerKeyRegex = /(?:answer\s*keys?|answers?|solutions?)\s*[:\n\r]([\s\S]*)$/i;
-  const answerKeyMatch = rawText.match(answerKeyRegex);
-  if (answerKeyMatch && answerKeyMatch[1]) {
-    const keyBlock = answerKeyMatch[1];
-    // Matches patterns like: 1. C, 1 - C, 1) C, 1: C, Q1: C, 1.C, 1 C
-    const itemRegex = /(?:Q(?:uestion)?\.?\s*)?(\d+)[\.\s:\-\)]+([A-D])\b/gi;
-    let match;
-    while ((match = itemRegex.exec(keyBlock)) !== null) {
-      answerKeyMap[parseInt(match[1])] = match[2].toUpperCase();
-    }
-  }
-
-  // Split text into lines
-  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-
-  let currentQuestion: any = null;
-  let qNumber = 0;
-
-  // Question start patterns: e.g. "1.", "Q1.", "Question 1:", "1)", "Q.1", "1 -"
-  const qStartRegex = /^(?:Q(?:uestion)?\.?\s*)?(\d+)[\.\)\:-]\s*(.+)$/i;
-  // Option start patterns: e.g. "A)", "A.", "(A)", "[A]", "A:"
-  const optRegex = /^[\(\[]?([A-D])[\.\)\]\-:]\s*(.+)$/i;
-  // Inline options pattern (multiple options on same line)
-  const inlineOptRegex = /(?:^|\s+)(?:\(|\[)?([A-D])(?:\)|\.|\:|\]|-)\s*([^\n\r]+?)(?=(?:\s+(?:\(|\[)?[A-D](?:\)|\.|\:|\]|-))|$)/gi;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Stop parsing questions if we enter the answers block
-    if (/^(?:answer\s*keys?|answers?|solutions?)\b/i.test(line)) {
-      if (currentQuestion && currentQuestion.text && currentQuestion.optionA && currentQuestion.optionB) {
-        questions.push(currentQuestion);
-        currentQuestion = null;
-      }
-      break;
-    }
-
-    const qMatch = line.match(qStartRegex);
-    if (qMatch) {
-      // Save previous question
-      if (currentQuestion && currentQuestion.text && currentQuestion.optionA && currentQuestion.optionB) {
-        questions.push(currentQuestion);
-      }
-
-      qNumber = parseInt(qMatch[1]);
-      const correctOpt = answerKeyMap[qNumber] || "A";
-
-      currentQuestion = {
-        section: defaultSection,
-        text: qMatch[2],
-        optionA: "",
-        optionB: "",
-        optionC: "",
-        optionD: "",
-        correctOption: correctOpt,
-        marks: defaultMarks,
-      };
-      continue;
-    }
-
-    if (!currentQuestion) continue;
-
-    // Check if line contains inline options (e.g. "A) 148  B) 156  C) 168  D) 172")
-    const inlineMatches = Array.from(line.matchAll(inlineOptRegex));
-    if (inlineMatches.length >= 2) {
-      for (const m of inlineMatches) {
-        const letter = m[1].toUpperCase();
-        const optVal = m[2].trim();
-        if (letter === "A") currentQuestion.optionA = optVal;
-        else if (letter === "B") currentQuestion.optionB = optVal;
-        else if (letter === "C") currentQuestion.optionC = optVal;
-        else if (letter === "D") currentQuestion.optionD = optVal;
-      }
-      continue;
-    }
-
-    // Check if line is a single option (e.g. "A) 148")
-    const optMatch = line.match(optRegex);
-    if (optMatch) {
-      const optLetter = optMatch[1].toUpperCase();
-      const optText = optMatch[2].trim();
-      if (optLetter === "A") currentQuestion.optionA = optText;
-      else if (optLetter === "B") currentQuestion.optionB = optText;
-      else if (optLetter === "C") currentQuestion.optionC = optText;
-      else if (optLetter === "D") currentQuestion.optionD = optText;
-      continue;
-    }
-
-    // Continuation of question text or option
-    if (!currentQuestion.optionA) {
-      currentQuestion.text += " " + line;
-    } else if (currentQuestion.optionD) {
-      currentQuestion.optionD += " " + line;
-    } else if (currentQuestion.optionC) {
-      currentQuestion.optionC += " " + line;
-    } else if (currentQuestion.optionB) {
-      currentQuestion.optionB += " " + line;
-    } else if (currentQuestion.optionA) {
-      currentQuestion.optionA += " " + line;
-    }
-  }
-
-  // Push last question
-  if (currentQuestion && currentQuestion.text && currentQuestion.optionA && currentQuestion.optionB) {
-    questions.push(currentQuestion);
-  }
-
-  return questions;
 }

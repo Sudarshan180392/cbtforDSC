@@ -33,9 +33,11 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
   const [marks, setMarks] = useState("2");
   const [addingSingle, setAddingSingle] = useState(false);
 
-  // PDF Import Modal State
+  // PDF / Text Import Modal State
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [importMode, setImportMode] = useState<"FILE" | "PASTE">("FILE");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pastedText, setPastedText] = useState("");
   const [defaultImportSection, setDefaultImportSection] = useState("General Intelligence");
   const [defaultImportMarks, setDefaultImportMarks] = useState("2");
   const [customApiKey, setCustomApiKey] = useState("");
@@ -119,8 +121,12 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
   // -------------------------------------------------------------
   const handlePdfUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pdfFile) {
+    if (importMode === "FILE" && !pdfFile) {
       setExtractionError("Please select a PDF file to import.");
+      return;
+    }
+    if (importMode === "PASTE" && !pastedText.trim()) {
+      setExtractionError("Please paste the question text into the box.");
       return;
     }
 
@@ -130,7 +136,11 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
 
     try {
       const formData = new FormData();
-      formData.append("file", pdfFile);
+      if (importMode === "FILE" && pdfFile) {
+        formData.append("file", pdfFile);
+      } else if (importMode === "PASTE") {
+        formData.append("pastedText", pastedText.trim());
+      }
       formData.append("defaultSection", defaultImportSection);
       formData.append("defaultMarks", defaultImportMarks);
       if (customApiKey.trim()) {
@@ -493,37 +503,102 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
                   <span className="text-[11px] text-blue-700 font-medium">Auto-detects Option A-D & Answer Keys</span>
                 </div>
 
-                {/* PDF File Input */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                    Select Exam PDF File *
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl p-6 text-center bg-gray-50 hover:bg-blue-50/50 transition-colors cursor-pointer relative">
-                    <input
-                      type="file"
-                      required
-                      accept=".pdf,application/pdf"
-                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div className="text-3xl mb-2">📥</div>
-                    {pdfFile ? (
-                      <div>
-                        <p className="font-bold text-blue-900 text-sm">{pdfFile.name}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {(pdfFile.size / (1024 * 1024)).toFixed(2)} MB PDF selected
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="font-semibold text-gray-700 text-sm">
-                          Click to browse or drag and drop your question paper PDF here
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">Supports up to 50MB PDF papers</p>
-                      </div>
-                    )}
-                  </div>
+                {/* Mode Selector Tabs */}
+                <div className="flex border-b border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportMode("FILE");
+                      setExtractionError("");
+                    }}
+                    className={`px-5 py-2.5 text-sm font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+                      importMode === "FILE"
+                        ? "border-blue-600 text-blue-800 bg-blue-50/50"
+                        : "border-transparent text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    📄 Upload PDF File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportMode("PASTE");
+                      setExtractionError("");
+                    }}
+                    className={`px-5 py-2.5 text-sm font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+                      importMode === "PASTE"
+                        ? "border-blue-600 text-blue-800 bg-blue-50/50"
+                        : "border-transparent text-gray-500 hover:text-gray-800"
+                    }`}
+                  >
+                    📋 Paste Questions Text Directly
+                  </button>
                 </div>
+
+                {/* PDF File Input */}
+                {importMode === "FILE" && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                      Select Exam PDF File *
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl p-6 text-center bg-gray-50 hover:bg-blue-50/50 transition-colors cursor-pointer relative">
+                      <input
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className="text-3xl mb-2">📥</div>
+                      {pdfFile ? (
+                        <div>
+                          <p className="font-bold text-blue-900 text-sm">{pdfFile.name}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {(pdfFile.size / (1024 * 1024)).toFixed(2)} MB PDF selected
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="font-semibold text-gray-700 text-sm">
+                            Click to browse or drag and drop your question paper PDF here
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">Supports up to 50MB PDF papers</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Direct Text Paste Input */}
+                {importMode === "PASTE" && (
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Paste Questions &amp; Answer Keys *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPastedText(
+                            "1. What is 35% of 480?\nA) 148\nB) 156\nC) 168\nD) 172\n\n2. A shopkeeper marks up an item by 25% and then offers a 20% discount on the marked price. What is the net profit or loss percentage?\nA) 5% profit\nB) 5% loss\nC) No profit, no loss\nD) 10% loss\n\nAnswers\n1. C\n2. C"
+                          );
+                        }}
+                        className="text-xs text-blue-600 hover:underline font-semibold"
+                      >
+                        Insert Sample
+                      </button>
+                    </div>
+                    <textarea
+                      rows={9}
+                      className="w-full border p-3 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50 text-gray-900 leading-relaxed"
+                      placeholder={`Paste questions and answer keys here...\n\nExample:\n1. What is 35% of 480?\nA) 148\nB) 156\nC) 168\nD) 172\n\nAnswers\n1. C`}
+                      value={pastedText}
+                      onChange={(e) => setPastedText(e.target.value)}
+                    />
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      💡 Tip: You can copy and paste directly from MS Word, PDF readers, or WhatsApp.
+                    </p>
+                  </div>
+                )}
 
                 {/* Settings Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -598,8 +673,12 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
                   </button>
                   <button
                     type="submit"
-                    disabled={isExtracting || !pdfFile}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow flex items-center gap-2 transition-all"
+                    disabled={
+                      isExtracting ||
+                      (importMode === "FILE" && !pdfFile) ||
+                      (importMode === "PASTE" && !pastedText.trim())
+                    }
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-bold shadow flex items-center gap-2 transition-all cursor-pointer"
                   >
                     {isExtracting ? (
                       <>
@@ -607,10 +686,10 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                         </svg>
-                        <span>Analyzing & Extracting Questions...</span>
+                        <span>Analyzing &amp; Extracting Questions...</span>
                       </>
                     ) : (
-                      <span>Extract Questions →</span>
+                      <span>{importMode === "FILE" ? "Extract from PDF →" : "Extract from Text →"}</span>
                     )}
                   </button>
                 </div>
