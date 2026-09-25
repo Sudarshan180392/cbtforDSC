@@ -262,18 +262,26 @@ export default function AdminExamPage({ params }: { params: Promise<{ id: string
                 Manage Questions: <span className="text-gray-700">{exam.title}</span>
               </h2>
             </div>
-            {/* Import from PDF Button */}
-            <button
-              onClick={() => {
-                setPreviewStep("UPLOAD");
-                setExtractionError("");
-                setExtractionWarning("");
-                setShowPdfModal(true);
-              }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow flex items-center gap-2 text-sm transition-all transform hover:scale-[1.02]"
-            >
-              📄 Import from PDF
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/admin/results?examId=${exam.id}`}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg shadow flex items-center gap-1.5 text-sm transition-all"
+              >
+                📊 Batch Results & PDF
+              </Link>
+              {/* Import from PDF Button */}
+              <button
+                onClick={() => {
+                  setPreviewStep("UPLOAD");
+                  setExtractionError("");
+                  setExtractionWarning("");
+                  setShowPdfModal(true);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow flex items-center gap-2 text-sm transition-all transform hover:scale-[1.02]"
+              >
+                📄 Import from PDF
+              </button>
+            </div>
           </div>
 
           <h3 className="font-bold text-base text-gray-800 mb-3">Add Single Question Manually</h3>

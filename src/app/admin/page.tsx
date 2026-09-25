@@ -56,6 +56,9 @@ export default function AdminDashboard() {
                 👥 Manage Users
               </Link>
             )}
+            <Link href="/admin/results" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded text-sm shadow transition-colors flex items-center gap-1.5">
+              📊 Batch Results & PDF
+            </Link>
             <Link href="/admin/batches" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded text-sm shadow transition-colors">
               🏷️ Batches & Assignments
             </Link>
@@ -92,9 +95,12 @@ export default function AdminDashboard() {
                   <td className="p-4 font-semibold">{exam.title}</td>
                   <td className="p-4">{exam._count.questions}</td>
                   <td className="p-4">{exam.duration} mins</td>
-                  <td className="p-4 flex gap-2">
+                  <td className="p-4 flex gap-3 items-center">
+                    <Link href={`/admin/results?examId=${exam.id}`} className="text-emerald-700 hover:underline text-sm font-semibold">
+                      📊 Results & PDF
+                    </Link>
                     <Link href={`/admin/exam/${exam.id}`} className="text-blue-600 hover:underline text-sm">
-                      Manage Questions
+                      Questions
                     </Link>
                     {role === "SUPERADMIN" && (
                       <button

@@ -123,6 +123,12 @@ export default function AdminBatchesPage() {
           </div>
           <div className="flex gap-3">
             <Link
+              href="/admin/results"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded text-sm shadow transition-colors flex items-center gap-1.5"
+            >
+              📊 Results & PDF
+            </Link>
+            <Link
               href="/admin/students"
               className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded text-sm shadow transition-colors"
             >
@@ -217,13 +223,22 @@ export default function AdminBatchesPage() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => handleDeleteBatch(batch.id, batch.name)}
-                        className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors"
-                        title="Delete Batch"
-                      >
-                        🗑️ Delete
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/admin/results?batchId=${batch.id}`}
+                          className="text-emerald-700 hover:text-emerald-900 text-xs font-bold px-2.5 py-1 rounded bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                          title="View Batch Results & PDF"
+                        >
+                          📊 Results & PDF
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteBatch(batch.id, batch.name)}
+                          className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                          title="Delete Batch"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
