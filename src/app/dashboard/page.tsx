@@ -11,6 +11,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [downloadingExamId, setDownloadingExamId] = useState<number | null>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -54,6 +55,34 @@ export default function StudentDashboard() {
   const handleLogout = () => {
     localStorage.removeItem("user");
     router.push("/login");
+  };
+
+  const handleDownloadPdf = async (examId: number, examTitle: string) => {
+    if (!user?.id) return;
+    setDownloadingExamId(examId);
+    try {
+      const res = await fetch(`/api/student/exam-pdf?examId=${examId}&userId=${user.id}`);
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to download Answer Key PDF");
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safeTitle = examTitle.replace(/[^a-zA-Z0-9_-]/g, "_");
+      link.download = `Crack_Academy_Answer_Key_${safeTitle}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Network error downloading Answer Key PDF");
+    } finally {
+      setDownloadingExamId(null);
+    }
   };
 
   if (loading || !user) {
@@ -163,9 +192,29 @@ export default function StudentDashboard() {
                 </div>
                 <div className="p-4 bg-gray-50 border-t">
                   {exam.isSubmitted ? (
-                    <Link href={`/exam/${exam.id}`} className="block w-full text-center bg-gray-700 hover:bg-gray-800 text-white font-bold py-2.5 px-4 rounded text-sm">
-                      View Summary
-                    </Link>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleDownloadPdf(exam.id, exam.title)}
+                        disabled={downloadingExamId === exam.id}
+                        className="w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded text-sm shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {downloadingExamId === exam.id ? (
+                          <>
+                            <span className="animate-spin">⏳</span> Generating PDF...
+                          </>
+                        ) : (
+                          <>
+                            <span>📥</span> Download Answer Key PDF
+                          </>
+                        )}
+                      </button>
+                      <Link
+                        href={`/exam/${exam.id}`}
+                        className="block w-full text-center bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded text-xs transition-colors"
+                      >
+                        View Summary on Screen
+                      </Link>
+                    </div>
                   ) : (
                     <Link href={`/exam/${exam.id}`} className="block w-full text-center bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded text-sm shadow-sm">
                       Start Exam →
